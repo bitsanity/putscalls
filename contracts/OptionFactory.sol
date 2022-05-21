@@ -131,8 +131,10 @@ contract OptionFactory is Ownable, IERC721Receiver {
 
   function take( uint256 tokenId ) external payable {
 
-    nft.burn( tokenId ); // reverts if this contract is not owner/authorized
-                         // changes token owner to the null address
+    // prevent a stranger from taking right after the nft owner approves
+    nft.safeTransferFrom( msg.sender, address(this), tokenId );
+
+    nft.burn( tokenId );
 
     owner_.transfer( takefee );
 
@@ -189,15 +191,14 @@ contract OptionFactory is Ownable, IERC721Receiver {
   function _retrieve( address xxxType, uint256 xxxAmt, uint256 xxxTokenId )
   internal {
 
-    if (xxxTokenId == 0x0) { // erc20
+    if (xxxAmt != 0x0) { // erc20
       require( IERC20(xxxType).transferFrom(msg.sender, address(this), xxxAmt),
-               "failed to transfer erc20 to this" );
+               "failed to retrieve erc20" );
     } else { // erc721
       IERC721(xxxType).transferFrom( msg.sender, address(this), xxxTokenId );
     }
   }
 
-  // if the maker of the token is zero that means dispatch already happened
   function _dispatch( address to,
                       address xxxType,
                       uint256 xxxAmt,
@@ -205,7 +206,7 @@ contract OptionFactory is Ownable, IERC721Receiver {
 
     if (xxxType == address(0x0)) {
       payable(to).transfer( xxxAmt );
-    } else if (xxxTokenId == 0x0) { // erc20
+    } else if (xxxAmt != 0x0) { // erc20
       require( IERC20(xxxType).approve(to, xxxAmt), "failed to approve erc20" );
     } else { // erc721
       IERC721(xxxType).approve( msg.sender, xxxTokenId );

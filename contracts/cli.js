@@ -58,7 +58,7 @@ function usage() {
      '\tvariables |\n',
      '\tsetOwner <newadmin> |\n',
      '\tmake <isCall> <atype> <aamount> <atokenid> <btype> <bamount> <btokenid> <expires> <data> |\n',
-     '\ttake <nfttokenid> |\n',
+     '\ttake <nfttokenid> <valuetosend> |\n',
      '\tcancel <nfttokenid> |\n',
      '\tsetFee <whichone> <amountinwei> |\n'
   );
@@ -176,10 +176,9 @@ web3.eth.getAccounts().then( (res) => {
 
           for (let ii = 0; ii < evs.length; ii++) {
             printEvent( evs[ii] );
-
+continue
             if (evs[ii].returnValues.tokenId) {
               let tok = evs[ii].returnValues.tokenId
-continue;
               try {
                 console.log( 'tokenId: ' + tok )
 
@@ -299,10 +298,14 @@ continue;
     if (cmd == 'take')
     {
       let tokenId = process.argv[5];
+      let valuetosend = parseInt( process.argv[6] );
 
       con.methods.takefee().call().then( (tf) => {
+
+        let val = valuetosend + parseInt(tf)
+
         con.methods.take( tokenId )
-        .send( {from: eb, gas: 100000, gasPrice: MYGASPRICE, value: tf} )
+        .send( {from: eb, gas: 1000000, gasPrice: MYGASPRICE, value: val} )
         .then( () => {
           console.log( 'took: ' + tokenId );
           process.exit(0);
@@ -322,9 +325,9 @@ continue;
       con.methods.cancelfee().call().then( (cf) => {
 
         con.methods.cancel( tokenId )
-        .send( {from: eb, gas: 100000, gasPrice: MYGASPRICE, value: cf} )
+        .send( {from: eb, gas: 1000000, gasPrice: MYGASPRICE, value: cf} )
         .then( () => {
-          console.log( 'canceled ' + tokenId );
+          console.log( 'canceled? ' + tokenId );
           process.exit(0);
         } )
         .catch( err => {
@@ -340,7 +343,7 @@ continue;
       let newfeewei = process.argv[6];
 
       con.methods.setFee( which, newfeewei )
-      .send( {from: eb, gas: 100000, gasPrice: MYGASPRICE} )
+      .send( {from: eb, gas: 1000000, gasPrice: MYGASPRICE} )
       .then( () => { process.exit(0); } )
       .catch( err => { console.log(err.toString()); process.exit(1); } );
     }
@@ -350,7 +353,7 @@ continue;
       let newguy = process.argv[5];
 
       con.methods.setOwner( newguy )
-      .send( {from: eb, gas: 100000, gasPrice: MYGASPRICE} )
+      .send( {from: eb, gas: 1000000, gasPrice: MYGASPRICE} )
       .then( () => { process.exit(0); } )
       .catch( err => { console.log(err.toString()); process.exit(1); } );
     }

@@ -54,15 +54,15 @@ echo ONLY OWNER CAN CHANGE OWNER
 echo ===========================
 echo
 
-#node ./cli.js 0 $FACTORY setOwner $TESTACCTB
-#node ./cli.js 0 $FACTORY variables
+node ./cli.js 0 $FACTORY setOwner $TESTACCTB
+node ./cli.js 0 $FACTORY variables
 
 echo BEGIN SHOULDFAIL ---------------------------------------------------------
-#node ./cli.js 0 $FACTORY setOwner $TESTACCTB
+node ./cli.js 0 $FACTORY setOwner $TESTACCTB
 echo END SHOULDFAIL------------------------------------------------------------
 
-#node ./cli.js 1 $FACTORY setOwner $TESTACCTC
-#node ./cli.js 0 $FACTORY variables
+node ./cli.js 1 $FACTORY setOwner $TESTACCTC
+node ./cli.js 0 $FACTORY variables
 
 echo
 echo ==========================
@@ -70,17 +70,17 @@ echo ONLY OWNER CAN ADJUST FEES
 echo ==========================
 echo
 
-#node ./cli.js 0 $FACTORY setFee 0 1000
-#node ./cli.js 0 $FACTORY setFee 1 2000
-#node ./cli.js 0 $FACTORY setFee 2 3000
-#node ./cli.js 0 $FACTORY variables
+node ./cli.js 2 $FACTORY setFee 0 1000
+node ./cli.js 2 $FACTORY setFee 1 2000
+node ./cli.js 2 $FACTORY setFee 2 3000
+node ./cli.js 0 $FACTORY variables
 
 echo BEGIN SHOULDFAIL ---------------------------------------------------------
-#node ./cli.js 2 $FACTORY setFee 3 1000 # invalid which
-#node ./cli.js 1 $FACTORY setFee 0 1000 # invalid owner
+node ./cli.js 2 $FACTORY setFee 3 1000 # invalid which
+node ./cli.js 1 $FACTORY setFee 0 1000 # invalid owner
 echo END SHOULDFAIL------------------------------------------------------------
 
-#node ./cli.js 0 $FACTORY variables
+node ./cli.js 0 $FACTORY variables
 
 echo
 echo ===============================
@@ -90,9 +90,9 @@ echo
 
 # back to test subdirectory for testpay script
 popd
-#node ./testpay.js 2 $FACTORY 10000
+node ./testpay.js 2 $FACTORY 10000
 pushd ..
-#node ./cli.js 0 $FACTORY variables
+node ./cli.js 0 $FACTORY variables
 
 echo
 echo ===============
@@ -106,27 +106,23 @@ HOURINSECONDS=3600
 HOURFROMNOW=$(($EPOCHSECONDS+$HOURINSECONDS))
 
 echo make...
-node ./cli.js 0 $FACTORY make "true" $ETHER 1000000 0 $ERC20 100000 0 $HOURFROMNOW "mydata"
-
-#node ./cli.js 0 $FACTORY balance $TESTACCTA
-
-echo BEGIN SHOULDFAIL ---------------------------------------------------------
-echo ensure someone other than token owner cannot cancel
-node ./cli.js 1 $FACTORY cancel 0
-echo END SHOULDFAIL -----------------------------------------------------------
+node ./cli.js 0 $FACTORY make "true" $ETHER 1000000 0 $ERC20 100000 0 $HOURFROMNOW "zero"
+node ./cli.js 0 $FACTORY balance $TESTACCTA
 
 echo --- ensure token owner CAN cancel before expiry
 node ./cli.js 0 $FACTORY approve $FACTORY 0
+echo token owner balance before canceling
 node ./cli.js 0 $FACTORY balance $TESTACCTA
 node ./cli.js 0 $FACTORY cancel 0
+echo token owner balance after canceling
 node ./cli.js 0 $FACTORY balance $TESTACCTA
 echo
 
-echo =================================================================
-echo make an option that expires NOW so next block it will be expired
-echo =================================================================
+echo
+echo --- make an option that expires NOW so next block it will be expired
+echo
 node ./cli.js 0 $FACTORY balance $TESTACCTA
-node ./cli.js 0 $FACTORY make "true" $ETHER 500000 0 $ERC20 100000 0 $EPOCHSECONDS "mydata"
+node ./cli.js 0 $FACTORY make "true" $ETHER 500000 0 $ERC20 100000 0 $EPOCHSECONDS "one"
 sleep 1
 
 echo --- maker 0 sells nft to address 1 on some nft marketplace
@@ -138,12 +134,108 @@ echo
 echo --- anyone taking the already-expired option returns collateral to maker
 echo
 node ./cli.js 1 $FACTORY approve $FACTORY 1
-node ./cli.js 1 $FACTORY take 1
-#node ./cli.js 0 $FACTORY balance $TESTACCTA
+echo balance before taking ...
+node ./cli.js 0 $FACTORY balance $TESTACCTA
+node ./cli.js 1 $FACTORY take 1 0
+echo balance after taking ...
+node ./cli.js 0 $FACTORY balance $TESTACCTA
 
-echo OptionNFT events:
-node ./cli.js 0 $FACTORY events
+echo
+echo --- maker canceling the expired option returns collateral
+echo
+node ./cli.js 0 $FACTORY make "true" $ETHER 500000 0 $ERC20 100000 0 $EPOCHSECONDS "two"
+sleep 1
+
+node ./cli.js 0 $FACTORY balance $TESTACCTA
+node ./cli.js 1 $FACTORY cancel 2
+node ./cli.js 0 $FACTORY balance $TESTACCTA
+
+echo
+echo ===========================================
+echo MAKE A PUT WHERE THE COLLATERAL IS AN ERC20
+echo ===========================================
+echo
+echo --- give 1M units of erc20 to acct 2
+echo
 
 popd
-#node ./events.js $ERC20 $ERC721
+node ./mine20.js 2 $ERC20 $TESTACCTC 1000000
+echo
+echo --- approve the erc20s for OptionFactory
+echo
+node ./approve.js 2 "true" $ERC20 $FACTORY 1000000
+pushd ..
+
+echo
+echo -- make the put
+node ./cli.js 2 $FACTORY make "false" $ETHER 100000000 0 $ERC20 1000000 0 $HOURFROMNOW "three"
+
+echo -- verify the smart contract holds the erc20s
+popd
+node ./balance.js "true" $ERC20 $FACTORY
+pushd ..
+
+echo -- sell the nft to TESTACCTB
+node ./cli.js 2 $FACTORY approve $TESTACCTB 3
+node ./cli.js 1 $FACTORY transferFrom $TESTACCTC 3
+
+echo -- TESTACCTB approves OptionNFT tokenId=3 for OptionFactory
+node ./cli.js 1 $FACTORY approve $FACTORY 3
+echo -- TESTACCTB then takes the put and receives the erc20s
+node ./cli.js 1 $FACTORY take 3 100000000
+popd
+echo -- TESTACCTB balance of the erc20
+node ./transferFrom.js 1 "true" $ERC20 $FACTORY 1000000
+node ./balance.js "true" $ERC20 $TESTACCTB
+
+echo
+echo ==================================================
+echo MAKE PUT WHERE COLLATERAL IS SOME OTHER ERC721/NFT
+echo ==================================================
+echo
+echo -- mint some random nft assume tokenId=0 and give it to TESTACCTC
+node ./mine721.js 2 $ERC721 $TESTACCTC
+echo -- approve the nft as collateral for the OptionFactory put
+node ./approve.js 2 "false" $ERC721 $FACTORY 0
+echo
+pushd ..
+
+echo -- TESTACCTC creates and owns OptionNFT tokenId=4
+node ./cli.js 2 $FACTORY make "false" $ETHER 100000000 0 $ERC721 0 0 $HOURFROMNOW "four"
+echo
+
+echo -- verify the smart contract now owns the nft
+popd
+node ./balance.js "false" $ERC721 $FACTORY
+pushd ..
+
+echo -- TESTACCTC sells option 4 to TESTACCTB
+node ./cli.js 2 $FACTORY approve $TESTACCTB 4
+node ./cli.js 1 $FACTORY transferFrom $TESTACCTC 4
+
+echo -- TESTACCTB/1 approves OptionNFT tokenId=4 for OptionFactory
+node ./cli.js 1 $FACTORY approve $FACTORY 4
+echo -- TESTACCTB/1 takes the put and receives the 721
+node ./cli.js 1 $FACTORY take 4 100000000
+echo
+popd
+
+echo -- B/1 takes the 721
+node ./transferFrom.js 1 "false" $ERC721 $FACTORY 0
+node ./balance.js "false" $ERC721 $TESTACCTB
+echo
+
+echo ==================
+echo FACTORY NFT EVENTS
+echo ==================
+echo
+pushd ..
+node ./cli.js 0 $FACTORY events
+popd
+
+echo ===================================
+echo EVENTS ON OUR MISC ERC20 AND ERC721
+echo ===================================
+echo
+node ./events.js $ERC20 $ERC721
 

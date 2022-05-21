@@ -21,6 +21,10 @@ function getNFTContract(sca) {
   return new web3.eth.Contract( getNFTABI(), sca );
 }
 
+function printEvent(evt) {
+  console.log( evt.event + ': ' + JSON.stringify(evt.returnValues) + '\n' );
+}
+
 var erc20sca = process.argv[2]
 var nftsca = process.argv[3]
 
